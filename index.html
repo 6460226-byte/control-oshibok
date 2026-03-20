@@ -121,7 +121,7 @@
                                 </tr>
                             </thead>
                             <tbody id="handbook-body" class="text-zinc-200">
-                                <tr><td colspan='4' class='text-center py-6 text-zinc-500'>Если тут пусто — нажмите «Вернуть базу из регламента» 👆</td></tr>
+                                <tr><td colspan='4' class='text-center py-6 text-zinc-500'>Загрузка...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -262,12 +262,12 @@
     </div>
 
     <script>
-        // ВАЖНО: ВСТАВЬТЕ СЮДА ВАШУ НОВУЮ ССЫЛКУ!
+        // === ВАША АКТУАЛЬНАЯ ССЫЛКА НА GOOGLE APPS SCRIPT ===
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby5UzNqrtJnx2uRGH7jrJLl-1_3rGONDMIr6HobGHkjoQl3BTGTRZObt5yDWuk8jZsx/exec';
 
         let currentSession = null;
 
-        // ПАРОЛИ УДАЛЕНЫ! Теперь они хранятся и проверяются на сервере Google Apps Script
+        // Пароли и логины проверяются исключительно на сервере Google
         async function attemptLogin() {
             const u = document.getElementById('login-username').value.trim();
             const p = document.getElementById('login-password').value.trim();
@@ -285,7 +285,6 @@
             errorMsg.classList.add('hidden');
 
             try {
-                // Отправляем логин и пароль на сервер для защищенной проверки
                 const res = await fetch(WEB_APP_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: "login", username: u, password: p }),
@@ -295,7 +294,6 @@
                 
                 if (data.status === "ok") {
                     currentSession = data.user;
-                    // Сохраняем защищенный токен, чтобы не логиниться при перезагрузке страницы
                     localStorage.setItem('control_oshibok_token', btoa(u + ':' + p));
                     startApplication();
                 } else {
@@ -330,7 +328,6 @@
                     }
                 } catch(e) { console.error("Ошибка автовхода", e); }
             }
-            // Если токена нет или пароль сменили на сервере - юзер останется на экране входа
         }
 
         function logout() { localStorage.removeItem('control_oshibok_token'); location.reload(); }
@@ -690,7 +687,6 @@
                 if(d.allErrors) allErrors = d.allErrors;
                 if(d.handbook && d.handbook.length > 0) handbook = d.handbook;
                 
-                // Исправление: если rgpsConfig пустой, задаем базовый, чтобы страница не ломалась
                 if(d.rgpsConfig && Object.keys(d.rgpsConfig).length>0) {
                     rgpsConfig = d.rgpsConfig;
                 } else {
