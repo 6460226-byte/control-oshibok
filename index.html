@@ -267,7 +267,6 @@
 
         let currentSession = null;
 
-        // Пароли и логины проверяются исключительно на сервере Google
         async function attemptLogin() {
             const u = document.getElementById('login-username').value.trim();
             const p = document.getElementById('login-password').value.trim();
@@ -515,8 +514,28 @@
             const data = getVisibleErrors();
             if (data.length === 0) { tbody.innerHTML = `<tr><td colspan='10' class='text-center py-10 text-zinc-600'>Ошибок не найдено</td></tr>`; return; }
 
+            // --- НОВОЕ: Считаем повторы ошибок у сотрудников по ВСЕЙ базе данных ---
+            const freqMap = {};
+            allErrors.forEach(e => {
+                const key = e.mop + "|||" + e.type;
+                freqMap[key] = (freqMap[key] || 0) + 1;
+            });
+
             data.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(err => {
-                const tr = document.createElement("tr"); tr.className = "border-b border-zinc-800 hover:bg-zinc-900";
+                
+                // --- Подсветка повторов ---
+                const repeatCount = freqMap[err.mop + "|||" + err.type];
+                let rowBgClass = "hover:bg-zinc-900";
+                let typeBadge = "";
+                
+                if (repeatCount > 1) {
+                    rowBgClass = "bg-rose-500/5 hover:bg-rose-500/10"; // Легкая красная подсветка
+                    typeBadge = `<span class="ml-2 inline-flex items-center px-1.5 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded text-[10px] font-bold whitespace-nowrap" title="Этот сотрудник совершал эту ошибку ${repeatCount} раз(а) за всё время">🔥 Повтор (${repeatCount})</span>`;
+                }
+
+                const tr = document.createElement("tr"); 
+                tr.className = `border-b border-zinc-800 ${rowBgClass}`; // Применяем подсветку
+                
                 const c = err.crit === 'Грубая' ? 'bg-red-500/10 text-red-400' : err.crit === 'Средняя' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400';
                 let cleanDate = err.date.includes('T') ? err.date.split('T')[0] : err.date;
                 const formattedDate = cleanDate.split('-').reverse().join('.');
@@ -532,7 +551,7 @@
                     <td class="py-3 px-6 ${mopCellClass}">${err.mop}</td>
                     <td class="py-3 px-6 text-zinc-500">${(rgpsConfig && rgpsConfig[err.rgp])?rgpsConfig[err.rgp].name:'???'}</td>
                     <td class="py-3 px-6">${lnk}</td>
-                    <td class="py-3 px-6">${err.type}</td>
+                    <td class="py-3 px-6 leading-tight">${err.type} ${typeBadge}</td>
                     <td class="py-3 px-6"><span class="px-2 py-0.5 text-xs rounded-full ${c}">${err.crit}</span></td>
                     <td class="py-3 px-6 text-zinc-400 text-xs">${err.measure}</td>
                     <td class="py-3 px-6 text-center"><input type="checkbox" ${err.fact?'checked':''} onchange="toggleFact('${err.id}')" class="w-4 h-4 accent-emerald-500"></td>
@@ -542,6 +561,7 @@
                 tbody.appendChild(tr);
             });
         }
+        
         function toggleFact(id) { const e=allErrors.find(x=>x.id==id); if(e){ e.fact=!e.fact; saveDataToGoogle(); } }
         function updComm(id, v) { const e=allErrors.find(x=>x.id==id); if(e && e.comment!==v){ e.comment=v; saveDataToGoogle(); } }
         function delErr(id) { 
