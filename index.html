@@ -168,12 +168,22 @@
                     </div>
 
                     <div class="flex flex-wrap items-center justify-between gap-4 bg-zinc-950 p-4 rounded-2xl border border-zinc-800 mb-4 shadow-inner">
-                        <div class="flex items-center gap-3">
-                            <div class="text-sm text-zinc-400 font-medium mr-2">Фильтр по дате:</div>
-                            <input type="date" id="filter-start" onchange="applyFilters()" class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none text-zinc-300">
-                            <span class="text-zinc-600">—</span>
-                            <input type="date" id="filter-end" onchange="applyFilters()" class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none text-zinc-300">
-                            <button onclick="clearFilters()" class="text-xs text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 px-3 py-2 rounded-xl transition-colors">Сбросить</button>
+                        <div class="flex items-center gap-4 flex-wrap">
+                            <div class="flex items-center gap-2">
+                                <div class="text-sm text-zinc-400 font-medium mr-1">Сотрудник:</div>
+                                <select id="filter-mop" onchange="applyFilters()" class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none text-zinc-300 max-w-[200px]">
+                                    <option value="">Все сотрудники</option>
+                                </select>
+                            </div>
+                            
+                            <div class="flex items-center gap-2">
+                                <div class="text-sm text-zinc-400 font-medium ml-2 mr-1">Даты:</div>
+                                <input type="date" id="filter-start" onchange="applyFilters()" class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none text-zinc-300">
+                                <span class="text-zinc-600">—</span>
+                                <input type="date" id="filter-end" onchange="applyFilters()" class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none text-zinc-300">
+                            </div>
+                            
+                            <button onclick="clearFilters()" class="text-xs text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 px-3 py-2 rounded-xl transition-colors ml-1">Сбросить всё</button>
                         </div>
                         <div class="flex gap-3">
                             <button onclick="exportToCSV()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors">
@@ -261,8 +271,36 @@
         </div>
     </div>
 
+    <!-- Модальное окно детализации ошибок -->
+    <div id="error-details-modal" class="fixed inset-0 bg-black/80 z-[200] hidden flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+            <div class="flex items-center justify-between p-6 border-b border-zinc-800">
+                <div>
+                    <h3 id="error-details-title" class="text-xl font-semibold text-zinc-100">Детализация</h3>
+                    <p class="text-xs text-zinc-400 mt-1">Кто совершал данную ошибку за выбранный период</p>
+                </div>
+                <button onclick="closeErrorDetails()" class="text-zinc-500 hover:text-zinc-300 bg-zinc-800 hover:bg-zinc-700 p-2 rounded-full transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-grow custom-scrollbar">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="text-zinc-500 border-b border-zinc-800">
+                            <th class="pb-3 font-medium px-2">Сотрудник</th>
+                            <th class="pb-3 font-medium px-2">Отдел (РГП)</th>
+                            <th class="pb-3 font-medium px-2 text-right">Кол-во</th>
+                        </tr>
+                    </thead>
+                    <tbody id="error-details-body" class="text-zinc-300">
+                        <!-- Данные загружаются динамически -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // === ВАША АКТУАЛЬНАЯ ССЫЛКА НА GOOGLE APPS SCRIPT ===
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby5UzNqrtJnx2uRGH7jrJLl-1_3rGONDMIr6HobGHkjoQl3BTGTRZObt5yDWuk8jZsx/exec';
 
         let currentSession = null;
@@ -392,12 +430,17 @@
 
         function getVisibleErrors() {
             let data = currentSession.role === "rop" ? allErrors : allErrors.filter(e => e.rgp === currentSession.role);
-            const sStr = document.getElementById('filter-start').value, eStr = document.getElementById('filter-end').value;
-            if (sStr || eStr) {
+            
+            const sStr = document.getElementById('filter-start').value;
+            const eStr = document.getElementById('filter-end').value;
+            const mopFilter = document.getElementById('filter-mop') ? document.getElementById('filter-mop').value : "";
+
+            if (sStr || eStr || mopFilter) {
                 data = data.filter(err => {
                     let cleanDate = err.date.includes('T') ? err.date.split('T')[0] : err.date;
                     if (sStr && cleanDate < sStr) return false;
                     if (eStr && cleanDate > eStr) return false;
+                    if (mopFilter && err.mop !== mopFilter) return false; // Фильтр по сотруднику
                     return true;
                 });
             }
@@ -409,7 +452,12 @@
             refreshDashboard(); 
         }
         
-        function clearFilters() { document.getElementById('filter-start').value = ''; document.getElementById('filter-end').value = ''; applyFilters(); }
+        function clearFilters() { 
+            document.getElementById('filter-start').value = ''; 
+            document.getElementById('filter-end').value = ''; 
+            if(document.getElementById('filter-mop')) document.getElementById('filter-mop').value = '';
+            applyFilters(); 
+        }
 
         function exportToCSV() {
             const data = getVisibleErrors();
@@ -469,8 +517,14 @@
             const s = document.getElementById("new-type"); s.innerHTML = `<option value="" disabled selected>Выберите тип...</option>`;
             handbook.forEach(i => s.appendChild(new Option(i.type, i.type)));
         }
+        
         function populateMopSelect() {
-            const s = document.getElementById("new-mop"); s.innerHTML = `<option value="" disabled selected>Кто ошибся?</option>`;
+            const s = document.getElementById("new-mop"); 
+            const filterS = document.getElementById("filter-mop"); // Для нового фильтра
+            
+            s.innerHTML = `<option value="" disabled selected>Кто ошибся?</option>`;
+            if (filterS) filterS.innerHTML = `<option value="">Все сотрудники</option>`;
+
             let m = [];
             if(currentSession.role==="rop"){ 
                 if(rgpsConfig) {
@@ -482,8 +536,13 @@
                 m = rgpsConfig[currentSession.role].managers; 
                 m.push(`[РГП] ${rgpsConfig[currentSession.role].name}`); 
             }
-            [...new Set(m)].sort().forEach(x => s.appendChild(new Option(x, x)));
+            
+            [...new Set(m)].sort().forEach(x => {
+                s.appendChild(new Option(x, x));
+                if (filterS) filterS.appendChild(new Option(x, x));
+            });
         }
+        
         function populateRgpSelectForRop() {
             const s = document.getElementById("new-rgp"); s.innerHTML = "";
             if(rgpsConfig) {
@@ -514,7 +573,7 @@
             const data = getVisibleErrors();
             if (data.length === 0) { tbody.innerHTML = `<tr><td colspan='10' class='text-center py-10 text-zinc-600'>Ошибок не найдено</td></tr>`; return; }
 
-            // --- НОВОЕ: Считаем повторы ошибок у сотрудников по ВСЕЙ базе данных ---
+            // --- НОВОЕ: Считаем сколько раз сотрудник совершил каждую ошибку (за всю историю) ---
             const freqMap = {};
             allErrors.forEach(e => {
                 const key = e.mop + "|||" + e.type;
@@ -523,18 +582,22 @@
 
             data.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(err => {
                 
-                // --- Подсветка повторов ---
+                // Проверяем, есть ли повторы этой ошибки у этого сотрудника
                 const repeatCount = freqMap[err.mop + "|||" + err.type];
+                
                 let rowBgClass = "hover:bg-zinc-900";
                 let typeBadge = "";
+                let borderStyle = "border-b border-zinc-800";
                 
                 if (repeatCount > 1) {
-                    rowBgClass = "bg-rose-500/5 hover:bg-rose-500/10"; // Легкая красная подсветка
-                    typeBadge = `<span class="ml-2 inline-flex items-center px-1.5 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded text-[10px] font-bold whitespace-nowrap" title="Этот сотрудник совершал эту ошибку ${repeatCount} раз(а) за всё время">🔥 Повтор (${repeatCount})</span>`;
+                    // Подсвечиваем красным цветом с боковой полоской
+                    rowBgClass = "bg-rose-500/10 hover:bg-rose-500/20"; 
+                    borderStyle = "border-b border-zinc-800 border-l-4 border-l-rose-500";
+                    typeBadge = `<div class="mt-1.5"><span class="inline-flex items-center px-1.5 py-0.5 bg-rose-500/20 text-rose-400 border border-rose-500/50 rounded text-[10.5px] font-bold whitespace-nowrap" title="Систематически: совершено ${repeatCount} раз(а) за всё время">🔥 Повтор (${repeatCount})</span></div>`;
                 }
 
                 const tr = document.createElement("tr"); 
-                tr.className = `border-b border-zinc-800 ${rowBgClass}`; // Применяем подсветку
+                tr.className = `${borderStyle} ${rowBgClass} transition-colors`;
                 
                 const c = err.crit === 'Грубая' ? 'bg-red-500/10 text-red-400' : err.crit === 'Средняя' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400';
                 let cleanDate = err.date.includes('T') ? err.date.split('T')[0] : err.date;
@@ -561,7 +624,7 @@
                 tbody.appendChild(tr);
             });
         }
-        
+
         function toggleFact(id) { const e=allErrors.find(x=>x.id==id); if(e){ e.fact=!e.fact; saveDataToGoogle(); } }
         function updComm(id, v) { const e=allErrors.find(x=>x.id==id); if(e && e.comment!==v){ e.comment=v; saveDataToGoogle(); } }
         function delErr(id) { 
@@ -621,13 +684,13 @@
             } else {
                 sortedTypes.forEach(([t, count], idx) => { 
                     ratingCont.innerHTML += `
-                    <div class="flex justify-between items-center bg-zinc-900 rounded-xl px-5 py-3 border border-zinc-800 hover:bg-zinc-800 transition-colors">
+                    <div onclick="showErrorDetails('${t.replace(/'/g, "\\'")}')" class="flex justify-between items-center bg-zinc-900 rounded-xl px-5 py-3 border border-zinc-800 hover:bg-zinc-800 cursor-pointer group transition-colors">
                         <div class='flex items-center gap-3'>
                             <span class="text-zinc-500 font-bold w-4">${idx+1}.</span>
-                            <span class='text-sm text-zinc-200'>${t}</span>
+                            <span class='text-sm text-zinc-200 group-hover:text-blue-400 transition-colors'>${t}</span>
                         </div>
                         <div class="flex items-center gap-4 text-xs">
-                            <span class="text-zinc-400 bg-zinc-950 px-3 py-1.5 rounded-md border border-zinc-800">${count} шт.</span>
+                            <span class="text-zinc-400 bg-zinc-950 px-3 py-1.5 rounded-md border border-zinc-800 group-hover:border-blue-500/40 transition-colors">${count} шт.</span>
                         </div>
                     </div>`; 
                 });
@@ -667,6 +730,49 @@
                 type: 'bar', data: { labels: topMc.map(i=>i[0]), datasets: [{ data: topMc.map(i=>i[1]), backgroundColor: '#ef4444', borderRadius: 4 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid:{color:'#27272a'}, ticks:{color:'#71717a', stepSize: 1} }, x: { grid:{display:false}, ticks:{color:'#a1a1aa'} } } }
             });
+        }
+
+        function showErrorDetails(errorType) {
+            const data = getVisibleErrors().filter(e => e.type === errorType);
+            const title = document.getElementById('error-details-title');
+            const tbody = document.getElementById('error-details-body');
+            const modal = document.getElementById('error-details-modal');
+
+            title.textContent = errorType;
+            tbody.innerHTML = '';
+
+            if (data.length === 0) return;
+
+            // Агрегируем по сотрудникам
+            const mopStats = {};
+            data.forEach(err => {
+                if (!mopStats[err.mop]) {
+                    mopStats[err.mop] = { count: 0, rgp: err.rgp };
+                }
+                mopStats[err.mop].count += 1;
+            });
+
+            // Сортируем по убыванию
+            const sortedMops = Object.entries(mopStats).sort((a, b) => b[1].count - a[1].count);
+
+            sortedMops.forEach(([mopName, stat]) => {
+                const rgpName = (rgpsConfig && rgpsConfig[stat.rgp]) ? rgpsConfig[stat.rgp].name : stat.rgp;
+                const mopCellClass = mopName.includes('[РГП]') ? 'text-amber-400 font-semibold' : 'text-zinc-100 font-medium';
+
+                tbody.innerHTML += `
+                    <tr class="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                        <td class="py-3 px-2 ${mopCellClass}">${mopName}</td>
+                        <td class="py-3 px-2 text-zinc-400">${rgpName}</td>
+                        <td class="py-3 px-2 text-right mono text-rose-400 font-semibold">${stat.count}</td>
+                    </tr>
+                `;
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeErrorDetails() {
+            document.getElementById('error-details-modal').classList.add('hidden');
         }
 
         function switchTab(n) {
