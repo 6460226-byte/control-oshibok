@@ -148,8 +148,9 @@
                             <select id="new-mop" class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 text-sm focus:border-emerald-500 outline-none"></select>
                         </div>
                         <div class="col-span-3">
-                            <label class="block text-xs text-zinc-400 mb-2">Тип ошибки</label>
-                            <select id="new-type" class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 text-sm focus:border-emerald-500 outline-none"></select>
+                            <label class="block text-xs text-zinc-400 mb-2">Тип ошибки (можно несколько)</label>
+                            <select id="new-type" onchange="addErrorType('rgp')" class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 text-sm focus:border-emerald-500 outline-none"></select>
+                            <div id="new-type-chips" class="flex flex-wrap gap-2 mt-3"></div>
                         </div>
                         <div class="col-span-3">
                             <label class="block text-xs text-zinc-400 mb-2">Ссылка на сделку</label>
@@ -205,7 +206,7 @@
                                     <th class="text-left py-4 px-6 font-medium text-zinc-400">Критичность</th>
                                     <th class="text-left py-4 px-6 font-medium text-zinc-400">Мера</th>
                                     <th class="text-center py-4 px-6 font-medium text-zinc-400">Отработано</th>
-                                    <th class="text-left py-4 px-6 font-medium text-zinc-400">Комментарий</th>
+                                    <th class="text-left py-4 px-6 font-medium text-zinc-400 min-w-[250px]">Комментарий</th>
                                     <th class="w-10"></th>
                                 </tr>
                             </thead>
@@ -296,8 +297,9 @@
                             <select id="okk-new-mop" class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 text-sm focus:border-purple-500 outline-none"></select>
                         </div>
                         <div class="col-span-3">
-                            <label class="block text-xs text-zinc-400 mb-2">Тип ошибки</label>
-                            <select id="okk-new-type" class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 text-sm focus:border-purple-500 outline-none"></select>
+                            <label class="block text-xs text-zinc-400 mb-2">Тип ошибки (можно несколько)</label>
+                            <select id="okk-new-type" onchange="addErrorType('okk')" class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 text-sm focus:border-purple-500 outline-none"></select>
+                            <div id="okk-type-chips" class="flex flex-wrap gap-2 mt-3"></div>
                         </div>
                         <div class="col-span-3">
                             <label class="block text-xs text-zinc-400 mb-2">Ссылка на сделку</label>
@@ -351,7 +353,7 @@
                                     <th class="text-left py-4 px-6 font-medium text-zinc-400">Тип ошибки</th>
                                     <th class="text-left py-4 px-6 font-medium text-zinc-400">Критичность</th>
                                     <th class="text-center py-4 px-6 font-medium text-zinc-400">Исправлено</th>
-                                    <th class="text-left py-4 px-6 font-medium text-zinc-400">Комментарий</th>
+                                    <th class="text-left py-4 px-6 font-medium text-zinc-400 min-w-[250px]">Комментарий</th>
                                     <th class="w-10"></th>
                                 </tr>
                             </thead>
@@ -507,6 +509,9 @@
         let mopChartInstance = null;
         let dynamicsChartInstance = null;
         let currentTab = 1;
+        
+        let selectedTypesRgp = [];
+        let selectedTypesOkk = [];
 
         function forceLoadDefaults() {
             if(!confirm("Загрузить 17 стандартных ошибок из регламента? (Текущий справочник будет перезаписан)")) return;
@@ -651,13 +656,61 @@
         }
         function deleteHandbookRow(idx) { if(confirm("Удалить стандарт?")){ handbook.splice(idx,1); buildErrorMap(); renderHandbook(); populateTypeSelect(); saveDataToGoogle(); } }
 
+        function addErrorType(form) {
+            const select = document.getElementById(form === 'rgp' ? 'new-type' : 'okk-new-type');
+            const val = select.value;
+            if (!val) return;
+            
+            const arr = form === 'rgp' ? selectedTypesRgp : selectedTypesOkk;
+            if (!arr.includes(val)) {
+                arr.push(val);
+                renderErrorChips(form);
+            }
+            select.value = ""; 
+        }
+
+        function removeErrorType(form, val) {
+            if (form === 'rgp') {
+                selectedTypesRgp = selectedTypesRgp.filter(e => e !== val);
+            } else {
+                selectedTypesOkk = selectedTypesOkk.filter(e => e !== val);
+            }
+            renderErrorChips(form);
+        }
+
+        function renderErrorChips(form) {
+            const container = document.getElementById(form === 'rgp' ? 'new-type-chips' : 'okk-type-chips');
+            const arr = form === 'rgp' ? selectedTypesRgp : selectedTypesOkk;
+            
+            if (form === 'rgp') {
+                container.innerHTML = arr.map(val => `
+                    <div class="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-xs">
+                        <span class="truncate max-w-[200px] block" title="${val}">${val}</span>
+                        <button onclick="removeErrorType('rgp', '${val.replace(/'/g, "\\'")}')" class="hover:text-emerald-300 ml-1 text-lg leading-none">&times;</button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = arr.map(val => `
+                    <div class="flex items-center gap-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1.5 rounded-lg text-xs">
+                        <span class="truncate max-w-[200px] block" title="${val}">${val}</span>
+                        <button onclick="removeErrorType('okk', '${val.replace(/'/g, "\\'")}')" class="hover:text-purple-300 ml-1 text-lg leading-none">&times;</button>
+                    </div>
+                `).join('');
+            }
+        }
+
         function populateTypeSelect() {
             const selects = [document.getElementById("new-type"), document.getElementById("okk-new-type")];
             selects.forEach(s => {
                 if(!s) return;
-                s.innerHTML = `<option value="" disabled selected>Выберите тип...</option>`;
+                s.innerHTML = `<option value="" disabled selected>Выберите тип(ы)...</option>`;
                 handbook.forEach(i => s.appendChild(new Option(i.type, i.type)));
             });
+            // Очищаем выбранные теги при загрузке
+            selectedTypesRgp = [];
+            selectedTypesOkk = [];
+            renderErrorChips('rgp');
+            renderErrorChips('okk');
         }
         
         function populateMopSelect() {
@@ -717,40 +770,48 @@
 
         function addErrorRow() {
             const d = document.getElementById("new-date").value, 
-                  m = document.getElementById("new-mop").value, 
-                  t = document.getElementById("new-type").value;
+                  m = document.getElementById("new-mop").value;
                   
-            if(!d || !m || !t){ alert("Заполните Дату, Сотрудника и Тип!"); return; }
+            if(!d || !m || selectedTypesRgp.length === 0){ alert("Заполните Дату, Сотрудника и выберите хотя бы один Тип ошибки!"); return; }
             const l = (document.getElementById("new-link").value||"—").replace(/https?:\/\//,'');
-            const data = errorMap[t];
             
             let rgpId = currentSession.role;
             if(currentSession.role === "rop") {
                 rgpId = document.getElementById("new-rgp").value || findRgpForMop(m);
             }
             
-            allErrors.push({ id: Date.now(), date: d, mop: m, rgp: rgpId, link: l, type: t, crit: data.crit, measure: data.measure, fact: false, comment: "", isOkk: false });
+            let baseId = Date.now();
+            selectedTypesRgp.forEach((t, idx) => {
+                const data = errorMap[t];
+                allErrors.push({ id: baseId + idx, date: d, mop: m, rgp: rgpId, link: l, type: t, crit: data.crit, measure: data.measure, fact: false, comment: "", isOkk: false });
+            });
             
             document.getElementById("new-link").value = ""; 
             document.getElementById("new-type").value = "";
+            selectedTypesRgp = [];
+            renderErrorChips('rgp');
             
             applyFilters(); saveDataToGoogle();
         }
 
         function addOkkErrorRow() {
             const d = document.getElementById("okk-new-date").value, 
-                  m = document.getElementById("okk-new-mop").value, 
-                  t = document.getElementById("okk-new-type").value;
+                  m = document.getElementById("okk-new-mop").value;
                   
-            if(!d || !m || !t){ alert("Заполните Дату, Сотрудника и Тип!"); return; }
+            if(!d || !m || selectedTypesOkk.length === 0){ alert("Заполните Дату, Сотрудника и выберите хотя бы один Тип ошибки!"); return; }
             const l = (document.getElementById("okk-new-link").value||"—").replace(/https?:\/\//,'');
-            const data = errorMap[t];
             const rgpId = findRgpForMop(m);
             
-            allErrors.push({ id: Date.now(), date: d, mop: m, rgp: rgpId, link: l, type: t, crit: data.crit, measure: data.measure, fact: false, comment: "", isOkk: true });
+            let baseId = Date.now();
+            selectedTypesOkk.forEach((t, idx) => {
+                const data = errorMap[t];
+                allErrors.push({ id: baseId + idx, date: d, mop: m, rgp: rgpId, link: l, type: t, crit: data.crit, measure: data.measure, fact: false, comment: "", isOkk: true });
+            });
             
             document.getElementById("okk-new-link").value = ""; 
             document.getElementById("okk-new-type").value = "";
+            selectedTypesOkk = [];
+            renderErrorChips('okk');
             
             renderOkkTable(); saveDataToGoogle();
         }
@@ -802,7 +863,7 @@
                     <td class="py-3 px-6"><span class="px-2 py-0.5 text-xs rounded-full ${c}">${err.crit}</span></td>
                     <td class="py-3 px-6 text-zinc-400 text-xs">${err.measure}</td>
                     <td class="py-3 px-6 text-center"><input type="checkbox" ${err.fact?'checked':''} onchange="toggleFact('${err.id}')" class="w-4 h-4 accent-emerald-500"></td>
-                    <td class="py-3 px-6"><input type="text" value="${err.comment||''}" onblur="updComm('${err.id}',this.value)" class="bg-transparent border border-transparent focus:border-zinc-700 w-full px-1 text-xs outline-none text-zinc-300"></td>
+                    <td class="py-2 px-6"><textarea onblur="updComm('${err.id}',this.value)" class="bg-transparent border border-transparent hover:border-zinc-800 focus:border-blue-500 focus:bg-zinc-950 rounded-lg w-full px-3 py-2 text-xs outline-none text-zinc-300 resize-y min-h-[50px] custom-scrollbar leading-relaxed block" placeholder="Добавить комментарий...">${err.comment||''}</textarea></td>
                     <td class="py-3 px-6 text-right">${deleteBtnHtml}</td>
                 `;
                 tbody.appendChild(tr);
@@ -854,7 +915,7 @@
                     <td class="py-3 px-6 leading-tight">${err.type} ${typeBadge}</td>
                     <td class="py-3 px-6"><span class="px-2 py-0.5 text-xs rounded-full ${c}">${err.crit}</span></td>
                     <td class="py-3 px-6 text-center"><input type="checkbox" ${err.fact?'checked':''} onchange="toggleFact('${err.id}')" class="w-4 h-4 accent-purple-500"></td>
-                    <td class="py-3 px-6"><input type="text" value="${err.comment||''}" onblur="updComm('${err.id}',this.value)" class="bg-transparent border border-transparent focus:border-zinc-700 w-full px-1 text-xs outline-none text-zinc-300"></td>
+                    <td class="py-2 px-6"><textarea onblur="updComm('${err.id}',this.value)" class="bg-transparent border border-transparent hover:border-zinc-800 focus:border-blue-500 focus:bg-zinc-950 rounded-lg w-full px-3 py-2 text-xs outline-none text-zinc-300 resize-y min-h-[50px] custom-scrollbar leading-relaxed block" placeholder="Добавить комментарий...">${err.comment||''}</textarea></td>
                     <td class="py-3 px-6 text-right">${deleteBtnHtml}</td>
                 `;
                 tbody.appendChild(tr);
